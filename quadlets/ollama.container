@@ -1,0 +1,34 @@
+[Unit]
+Description=Ollama LLM Server
+Documentation=https://ollama.com
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/ollama/ollama:latest
+AutoUpdate=registry
+
+# Persist models between container restarts
+Volume=%h/.ollama:/root/.ollama:Z
+
+# Expose on localhost only (chi-agent connects here)
+PublishPort=127.0.0.1:11434:11434
+
+# Environment
+Environment=OLLAMA_NUM_PARALLEL=1
+Environment=OLLAMA_MAX_LOADED_MODELS=1
+
+# Keep stdout/stderr for journald
+LogDriver=journald
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+
+# Resource limits — leave ~11GB for OS + apps (target: 16GB system)
+MemoryMax=6G
+CPUQuota=80%
+
+[Install]
+WantedBy=default.target

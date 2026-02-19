@@ -1,0 +1,102 @@
+// chiOS Waybar configuration
+// Dark minimal theme with AI status indicator
+
+{
+    "layer": "top",
+    "position": "top",
+    "height": 32,
+    "spacing": 4,
+    "margin-top": 4,
+    "margin-left": 8,
+    "margin-right": 8,
+
+    "modules-left": [
+        "hyprland/workspaces",
+        "hyprland/window"
+    ],
+
+    "modules-center": [
+        "clock"
+    ],
+
+    "modules-right": [
+        "custom/chi-status",
+        "network",
+        "pulseaudio",
+        "battery",
+        "tray"
+    ],
+
+    // ---------------------------------------------------------------------------
+    // Left modules
+    // ---------------------------------------------------------------------------
+
+    "hyprland/workspaces": {
+        "format": "{id}",
+        "on-click": "activate",
+        "sort-by-number": true
+    },
+
+    "hyprland/window": {
+        "format": "{title}",
+        "max-length": 60,
+        "separate-outputs": true
+    },
+
+    // ---------------------------------------------------------------------------
+    // Center
+    // ---------------------------------------------------------------------------
+
+    "clock": {
+        "format": "{:%H:%M}",
+        "format-alt": "{:%A, %B %d %Y  %H:%M}",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+    },
+
+    // ---------------------------------------------------------------------------
+    // Right modules
+    // ---------------------------------------------------------------------------
+
+    // chi AI status dot — polls D-Bus for agent state
+    "custom/chi-status": {
+        "exec": "python3 /usr/lib/chi-agent/waybar_status.py",
+        "return-type": "json",
+        "interval": 2,
+        "on-click": "python3 /usr/lib/chi-overlay/overlay.py",
+        "tooltip": true
+    },
+
+    "network": {
+        "format-wifi": " {essid}",
+        "format-ethernet": " {ipaddr}",
+        "format-disconnected": " disconnected",
+        "tooltip-format": "{ifname}: {ipaddr}/{cidr}\n{gwaddr} ({signalStrength}%)",
+        "on-click": "kitty -e nmtui"
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": " muted",
+        "format-icons": {
+            "default": ["", "", ""]
+        },
+        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
+        "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+    },
+
+    "battery": {
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": " {capacity}%",
+        "format-plugged": " {capacity}%",
+        "format-icons": ["", "", "", "", ""]
+    },
+
+    "tray": {
+        "spacing": 8
+    }
+}

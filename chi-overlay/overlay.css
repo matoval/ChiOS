@@ -1,0 +1,51 @@
+/* chi-overlay — transparent dark floating window */
+
+window.chi-overlay {
+    background-color: rgba(15, 15, 20, 0.92);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.chi-label {
+    color: #7c6af7;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    min-width: 32px;
+}
+
+.chi-entry {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #e8e8f0;
+    font-size: 15px;
+    font-family: "Inter", "Noto Sans", sans-serif;
+    caret-color: #7c6af7;
+}
+
+entry {
+    box-shadow: none;
+    background: transparent;
+}
+
+entry:focus {
+    box-shadow: none;
+    outline: none;
+}
+
+.chi-response {
+    color: #c8c8d8;
+    font-size: 13px;
+    font-family: "Inter", "Noto Sans", sans-serif;
+    padding-top: 4px;
+    line-height: 1.5;
+}
+
+.chi-action {
+    color: #5a8a6a;
+    font-size: 12px;
+    font-style: italic;
+    font-family: "Inter", "Noto Sans", sans-serif;
+}

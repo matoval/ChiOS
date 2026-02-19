@@ -1,0 +1,132 @@
+/* chiOS Waybar — dark minimal theme */
+
+* {
+    font-family: "Inter", "Noto Sans", sans-serif;
+    font-size: 13px;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: rgba(15, 15, 22, 0.90);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: #c8c8d8;
+    transition-property: background-color;
+    transition-duration: 0.5s;
+}
+
+/* Workspaces */
+#workspaces button {
+    padding: 0 8px;
+    background-color: transparent;
+    color: #666677;
+    border-radius: 4px;
+    margin: 4px 2px;
+}
+
+#workspaces button:hover {
+    background-color: rgba(124, 106, 247, 0.15);
+    color: #c8c8d8;
+}
+
+#workspaces button.active {
+    background-color: rgba(124, 106, 247, 0.25);
+    color: #7c6af7;
+    font-weight: bold;
+}
+
+#workspaces button.urgent {
+    background-color: rgba(192, 80, 80, 0.3);
+    color: #f08080;
+}
+
+/* Window title */
+#window {
+    color: #888899;
+    padding: 0 8px;
+}
+
+/* Clock */
+#clock {
+    padding: 0 12px;
+    color: #c8c8d8;
+    font-weight: 500;
+}
+
+/* chi AI status */
+#custom-chi-status {
+    padding: 0 10px;
+    font-size: 14px;
+    border-radius: 4px;
+}
+
+/* Network */
+#network {
+    padding: 0 10px;
+    color: #88a8c8;
+}
+
+#network.disconnected {
+    color: #886666;
+}
+
+/* Audio */
+#pulseaudio {
+    padding: 0 10px;
+    color: #88c8a8;
+}
+
+#pulseaudio.muted {
+    color: #666677;
+}
+
+/* Battery */
+#battery {
+    padding: 0 10px;
+}
+
+#battery.charging {
+    color: #88c8a8;
+}
+
+#battery.warning:not(.charging) {
+    color: #d4a85a;
+}
+
+#battery.critical:not(.charging) {
+    color: #c05050;
+    animation-name: blink;
+    animation-duration: 1s;
+    animation-timing-function: steps(1);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+@keyframes blink {
+    to {
+        color: rgba(192, 80, 80, 0.3);
+    }
+}
+
+/* Tray */
+#tray {
+    padding: 0 8px;
+}
+
+#tray > .passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+    -gtk-icon-effect: highlight;
+    background-color: rgba(192, 80, 80, 0.3);
+}
+
+/* Tooltip */
+tooltip {
+    background-color: rgba(15, 15, 22, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: #c8c8d8;
+}

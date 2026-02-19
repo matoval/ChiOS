@@ -1,0 +1,6 @@
+[SddmGreeterTheme]
+Name=chiOS
+Description=chiOS login screen
+Author=chiOS
+License=MIT
+Type=sddm-theme
