@@ -107,11 +107,6 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y podman
 
-      - name: Log in to GHCR (to pull chiOS image inside the build container)
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io \
-            -u "${{ github.actor }}" --password-stdin
-
       - name: Build installer ISO
         run: |
           VERSION="${GITHUB_REF#refs/tags/}"
@@ -120,16 +115,17 @@ jobs:
 
           mkdir -p output
 
+          # The Fedora container builds the live ISO using lorax/livemedia-creator.
+          # GHCR credentials are NOT needed here — the chiOS image is pulled at
+          # install time by the chi-install Calamares module, not during ISO build.
           sudo podman run --rm --privileged \
             -v "$(pwd)/installer:/installer:ro" \
             -v "$(pwd)/output:/output" \
-            -v "/etc/containers:/etc/containers:ro" \
-            -v "/run/containers:/run/containers" \
             -e CHIOS_IMAGE="${CHIOS_IMAGE}" \
             -e ISO_NAME="${ISO_NAME}" \
             -e OUTPUT_DIR="/output" \
             quay.io/fedora/fedora:42 \
-            bash /installer/build-installer.sh
+            bash -x /installer/build-installer.sh
 
           echo "ISO_NAME=${ISO_NAME}" >> $GITHUB_ENV
 

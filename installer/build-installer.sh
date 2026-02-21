@@ -11,7 +11,7 @@
 #   ISO_NAME     — output filename (default: chiOS-installer.iso)
 #   OUTPUT_DIR   — directory to write the ISO into (default: /output)
 
-set -euo pipefail
+set -euxo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHIOS_IMAGE="${CHIOS_IMAGE:-ghcr.io/matoval/chios:latest}"
