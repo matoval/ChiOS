@@ -1,5 +1,8 @@
 # chiOS
 
+[![Latest Release](https://img.shields.io/github/v/release/matoval/ChiOS?label=latest&color=7c6af7)](https://github.com/matoval/ChiOS/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/matoval/ChiOS/build.yml?branch=main)](https://github.com/matoval/ChiOS/actions)
+
 An AI-native OS for any knowledge level. Fedora Atomic base, custom desktop shell, local LLM as the primary interface — click "✦ Ask chi…" and tell it what to do.
 
 ```text
@@ -114,7 +117,7 @@ chiOS/
 
 ### Download ISO
 
-Download the latest `chiOS-vX.Y.Z-installer.iso` from [GitHub Releases](https://github.com/matoval/chios/releases).
+Download the latest `chiOS-vX.Y.Z-installer.iso` from [GitHub Releases](https://github.com/matoval/ChiOS/releases/latest).
 
 Verify the checksum:
 
