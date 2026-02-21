@@ -1,12 +1,13 @@
 FROM ghcr.io/ublue-os/base-main:latest
 
 COPY build.sh /tmp/build.sh
-COPY chi-agent/ /usr/share/chi-agent/
+COPY chi-agent/   /usr/share/chi-agent/
 COPY chi-overlay/ /usr/share/chi-overlay/
-COPY chi-voice/ /usr/share/chi-voice/
-COPY chi-shell/ /usr/share/chi-shell/
-COPY quadlets/ /usr/share/chi-quadlets/
-COPY configs/ /usr/share/chi-configs/
+COPY chi-voice/   /usr/share/chi-voice/
+COPY chi-shell/   /usr/share/chi-shell-src/
+COPY chi-greeter/ /usr/share/chi-greeter-src/
+COPY quadlets/    /usr/share/chi-quadlets/
+COPY configs/     /usr/share/chi-configs/
 COPY post-install/ /usr/share/chi-post-install/
 
 RUN /tmp/build.sh && rm /tmp/build.sh

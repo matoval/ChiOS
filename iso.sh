@@ -14,6 +14,25 @@ echo "==> Output directory: ${OUTPUT_DIR}"
 echo ""
 
 # ---------------------------------------------------------------------------
+# Target disk selection (required — installer is fully automatic)
+# ---------------------------------------------------------------------------
+
+echo "WARNING: The chiOS installer is fully automatic and will ERASE the target"
+echo "         disk without any confirmation. ALL DATA will be permanently lost."
+echo ""
+echo "Run 'lsblk' on the target machine to identify the correct disk first."
+echo ""
+
+CHI_DISK=""
+while [[ -z "${CHI_DISK}" ]]; do
+  read -rp "Target install disk (e.g. /dev/sda, /dev/nvme0n1): " CHI_DISK
+  if [[ -z "${CHI_DISK}" ]]; then
+    echo "A target disk is required."
+  fi
+done
+echo ""
+
+# ---------------------------------------------------------------------------
 # Prompt for user credentials
 # ---------------------------------------------------------------------------
 
@@ -41,15 +60,76 @@ while [[ -z "${CHI_PASS}" ]]; do
 done
 
 # ---------------------------------------------------------------------------
+# WiFi configuration (optional)
+# ---------------------------------------------------------------------------
+
+echo "WiFi setup (optional — skip if using ethernet or configuring later):"
+read -rp "WiFi SSID [leave blank to skip]: " CHI_WIFI_SSID
+CHI_WIFI_PASS=""
+if [[ -n "${CHI_WIFI_SSID}" ]]; then
+  read -rsp "WiFi password: " CHI_WIFI_PASS
+  echo ""
+fi
+echo ""
+
+# ---------------------------------------------------------------------------
 # Write bootc-image-builder config TOML
 # ---------------------------------------------------------------------------
 
+# Hash password for kickstart (SHA-512, accepted by Anaconda)
+CHI_PASS_HASH=$(openssl passwd -6 "${CHI_PASS}")
+DISK_BASENAME=$(basename "${CHI_DISK}")
+
+# Build kickstart header (all variables expanded now)
+KICKSTART_HEADER="text --non-interactive
+zerombr
+clearpart --all --initlabel --drives=${DISK_BASENAME}
+ignoredisk --only-use=${DISK_BASENAME}
+autopart --noswap --type=lvm
+user --name=${CHI_USER} --password=${CHI_PASS_HASH} --iscrypted --groups=wheel
+reboot"
+
+# Optionally append WiFi %post section
+KICKSTART_POST=""
+if [[ -n "${CHI_WIFI_SSID}" ]]; then
+  KICKSTART_POST="%post
+mkdir -p /etc/NetworkManager/system-connections
+cat > /etc/NetworkManager/system-connections/chiOS-wifi.nmconnection << 'NMEOF'
+[connection]
+id=chiOS-wifi
+type=wifi
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid=${CHI_WIFI_SSID}
+
+[wifi-security]
+auth-alg=open
+key-mgmt=wpa-psk
+psk=${CHI_WIFI_PASS}
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+NMEOF
+chmod 600 /etc/NetworkManager/system-connections/chiOS-wifi.nmconnection
+%end"
+fi
+
+# Write TOML — [[customizations.user]] cannot be combined with kickstart block;
+# user creation is handled inside the kickstart contents instead.
 cat > "${CONFIG_FILE}" << EOF
-[[customizations.user]]
-name = "${CHI_USER}"
-password = "${CHI_PASS}"
-groups = ["wheel"]
+[customizations.installer.kickstart]
+contents = """
+${KICKSTART_HEADER}
+${KICKSTART_POST}
+"""
 EOF
+echo "==> Target disk: ${CHI_DISK}"
+[[ -n "${CHI_WIFI_SSID}" ]] && echo "==> WiFi: ${CHI_WIFI_SSID} (pre-configured)"
 
 echo "==> User '${CHI_USER}' will be created in the ISO installer"
 echo ""

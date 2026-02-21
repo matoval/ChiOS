@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<labwc_config>
+
+  <!-- Visual theme -->
+  <theme>
+    <name>Adwaita-dark</name>
+    <cornerRadius>8</cornerRadius>
+  </theme>
+
+  <!-- Window gaps (space around windows) -->
+  <core>
+    <gap>8</gap>
+  </core>
+
+  <!-- Click-to-focus, raise on click -->
+  <focus>
+    <followMouse>no</followMouse>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+
+  <!-- Keyboard shortcuts — minimal, mostly for power users -->
+  <keyboard>
+    <!-- Close window -->
+    <keybind key="W-q">
+      <action name="Close"/>
+    </keybind>
+    <keybind key="A-F4">
+      <action name="Close"/>
+    </keybind>
+
+    <!-- Maximize/restore -->
+    <keybind key="W-f">
+      <action name="ToggleMaximize"/>
+    </keybind>
+
+    <!-- chi AI overlay -->
+    <keybind key="W-space">
+      <action name="Execute">
+        <command>chi-overlay-show</command>
+      </action>
+    </keybind>
+
+    <!-- Terminal -->
+    <keybind key="W-t">
+      <action name="Execute">
+        <command>kitty</command>
+      </action>
+    </keybind>
+  </keyboard>
+
+  <!-- Mouse bindings -->
+  <mouse>
+    <!-- Desktop right-click menu -->
+    <context name="Root">
+      <mousebind action="Press" button="Right">
+        <action name="ShowMenu">
+          <menu>root-menu</menu>
+        </action>
+      </mousebind>
+    </context>
+
+    <!-- Click to focus and raise -->
+    <context name="Client">
+      <mousebind action="Press" button="Left">
+        <action name="Focus"/>
+        <action name="Raise"/>
+      </mousebind>
+    </context>
+
+    <!-- Drag titlebar to move -->
+    <context name="Titlebar">
+      <mousebind action="Press" button="Left">
+        <action name="Focus"/>
+        <action name="Raise"/>
+      </mousebind>
+      <mousebind action="Drag" button="Left">
+        <action name="Move"/>
+      </mousebind>
+      <mousebind action="DoubleClick" button="Left">
+        <action name="ToggleMaximize"/>
+      </mousebind>
+    </context>
+
+    <!-- Drag corner to resize -->
+    <context name="Corner">
+      <mousebind action="Drag" button="Left">
+        <action name="Resize"/>
+      </mousebind>
+    </context>
+
+    <!-- Super+drag to move any window -->
+    <context name="Client">
+      <mousebind action="Drag" button="W-Left">
+        <action name="Move"/>
+      </mousebind>
+      <mousebind action="Drag" button="W-Right">
+        <action name="Resize"/>
+      </mousebind>
+    </context>
+  </mouse>
+
+  <!-- Per-window rules -->
+  <windowRules>
+    <!-- chi-overlay: floating, no taskbar entry -->
+    <windowRule identifier="io.chios.Overlay" matchUniqueness="false">
+      <serverDecoration>no</serverDecoration>
+      <skipTaskbar>yes</skipTaskbar>
+      <skipPager>yes</skipPager>
+    </windowRule>
+  </windowRules>
+
+</labwc_config>

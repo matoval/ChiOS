@@ -72,15 +72,15 @@ fi
 notify-send -t 2000 "chi" "\"$TRANSCRIPT\"" 2>/dev/null || true
 
 # Send transcript to chi-agent via D-Bus
-python3 - <<EOF
+# Transcript is passed as argv[1] to avoid shell injection via heredoc interpolation
+python3 - "$TRANSCRIPT" <<'EOF'
 import sys
 try:
     from pydbus import SessionBus
     bus = SessionBus()
     agent = bus.get("io.chios.Agent", "/io/chios/Agent")
-    response = agent.Ask("""$TRANSCRIPT""")
+    response = agent.Ask(sys.argv[1])
     print(response)
-    # Show response in notification
     import subprocess
     subprocess.run(["notify-send", "-t", "8000", "chi", response], check=False)
 except Exception as e:

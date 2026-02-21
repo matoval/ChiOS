@@ -1,227 +1,537 @@
 #!/usr/bin/env python3
 """
-chi-overlay — GTK4 AI prompt popup for chiOS.
+chi-overlay v2 — Tabbed AI assistant window for chiOS.
 
-Triggered by Super+Space (via Hyprland keybinding).
-Floats above all windows, borderless, transparent.
-Sends user input to chi-agent via D-Bus, streams response.
+Runs as a persistent GTK IS_SERVICE application (singleton).
+Tabs: Chat | History | Data
 
-Usage:
-  python3 overlay.py          # show overlay once
-  python3 overlay.py --daemon # wait for D-Bus activation signals
+Launched by chi-shell panel button or Super+Space keybinding.
+Second launch activates (shows) the already-running instance.
 """
 
-import argparse
+import json
 import sys
 import threading
+from pathlib import Path
 
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gtk, Gdk, GLib, Gio
+from gi.repository import Gdk, GLib, Gio, Gtk
 
-
-DBUS_NAME = "io.chios.Agent"
-DBUS_PATH = "/io/chios/Agent"
+DBUS_AGENT = "io.chios.Agent"
+DBUS_AGENT_PATH = "/io/chios/Agent"
 CSS_FILE = "/usr/lib/chi-overlay/overlay.css"
+WINDOW_WIDTH = 720
+WINDOW_HEIGHT = 540
 
+
+# ---------------------------------------------------------------------------
+# Chat message row
+# ---------------------------------------------------------------------------
+
+class MessageRow(Gtk.Box):
+    def __init__(self, role: str, content: str):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        self.set_margin_start(12)
+        self.set_margin_end(12)
+        self.set_margin_top(4)
+        self.set_margin_bottom(4)
+        self.add_css_class("msg-row")
+        self.add_css_class(f"msg-{role}")
+
+        who = Gtk.Label(label="You" if role == "user" else "chi")
+        who.set_xalign(0)
+        who.add_css_class("msg-who")
+        self.append(who)
+
+        text = Gtk.Label(label=content)
+        text.set_xalign(0)
+        text.set_wrap(True)
+        text.set_wrap_mode(2)  # WORD_CHAR
+        text.set_selectable(True)
+        text.add_css_class("msg-text")
+        self.append(text)
+
+
+# ---------------------------------------------------------------------------
+# Chat tab
+# ---------------------------------------------------------------------------
+
+class ChatTab(Gtk.Box):
+    def __init__(self, overlay_win):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self._win = overlay_win
+
+        # Message list in a scrolled window
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.append(scroll)
+
+        self._msg_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self._msg_list.set_name("msg-list")
+        scroll.set_child(self._msg_list)
+        self._scroll = scroll
+
+        # Separator
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        self.append(sep)
+
+        # Input bar
+        input_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        input_bar.set_name("input-bar")
+        input_bar.set_margin_start(12)
+        input_bar.set_margin_end(12)
+        input_bar.set_margin_top(10)
+        input_bar.set_margin_bottom(10)
+        self.append(input_bar)
+
+        # Voice button
+        voice_btn = Gtk.Button(label="🎤")
+        voice_btn.set_name("voice-btn")
+        voice_btn.set_tooltip_text("Push-to-talk (or hold Super+V)")
+        voice_btn.connect("clicked", self._on_voice)
+        input_bar.append(voice_btn)
+
+        # Text entry
+        self._entry = Gtk.Entry()
+        self._entry.set_hexpand(True)
+        self._entry.set_placeholder_text("Ask chi anything…")
+        self._entry.set_name("chi-entry")
+        self._entry.connect("activate", self._on_submit)
+        input_bar.append(self._entry)
+
+        # Send button
+        send_btn = Gtk.Button(label="Send ▶")
+        send_btn.set_name("send-btn")
+        send_btn.connect("clicked", self._on_submit)
+        input_bar.append(send_btn)
+
+        # "Thinking…" indicator (hidden by default)
+        self._thinking = Gtk.Label(label="Thinking…")
+        self._thinking.set_name("thinking-label")
+        self._thinking.set_halign(Gtk.Align.START)
+        self._thinking.set_margin_start(12)
+        self._thinking.set_margin_bottom(6)
+        self._thinking.set_visible(False)
+        self.append(self._thinking)
+
+        self._agent = None
+
+    def focus_entry(self) -> None:
+        self._entry.grab_focus()
+
+    def add_message(self, role: str, content: str) -> None:
+        row = MessageRow(role, content)
+        self._msg_list.append(row)
+        # Scroll to bottom after GTK finishes layout
+        GLib.idle_add(self._scroll_bottom)
+
+    def _scroll_bottom(self) -> bool:
+        adj = self._scroll.get_vadjustment()
+        adj.set_value(adj.get_upper())
+        return False
+
+    def _on_submit(self, *_) -> None:
+        prompt = self._entry.get_text().strip()
+        if not prompt:
+            return
+        self._entry.set_text("")
+        self._entry.set_sensitive(False)
+        self._thinking.set_visible(True)
+        self.add_message("user", prompt)
+
+        threading.Thread(target=self._ask, args=(prompt,), daemon=True).start()
+
+    def _ask(self, prompt: str) -> None:
+        agent = self._get_agent()
+        if agent is None:
+            GLib.idle_add(self._on_response, None, "chi-agent is not running.")
+            return
+        try:
+            response = agent.Ask(prompt)
+            GLib.idle_add(self._on_response, response, None)
+        except Exception as e:
+            GLib.idle_add(self._on_response, None, str(e))
+
+    def _on_response(self, response: str | None, error: str | None) -> None:
+        self._thinking.set_visible(False)
+        self._entry.set_sensitive(True)
+        self._entry.grab_focus()
+        if response is not None:
+            self.add_message("assistant", response)
+        else:
+            self.add_message("assistant", f"Error: {error}")
+
+    def _get_agent(self):
+        if self._agent:
+            return self._agent
+        try:
+            from pydbus import SessionBus
+            self._agent = SessionBus().get(DBUS_AGENT, DBUS_AGENT_PATH)
+        except Exception:
+            self._agent = None
+        return self._agent
+
+    def _on_voice(self, _btn) -> None:
+        import subprocess
+        subprocess.Popen(["/usr/lib/chi-voice/voice.sh"], start_new_session=True)
+
+
+# ---------------------------------------------------------------------------
+# History tab
+# ---------------------------------------------------------------------------
+
+class HistoryTab(Gtk.Box):
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        toolbar.set_name("tab-toolbar")
+        toolbar.set_margin_start(12)
+        toolbar.set_margin_end(12)
+        toolbar.set_margin_top(10)
+        toolbar.set_margin_bottom(10)
+        self.append(toolbar)
+
+        title = Gtk.Label(label="Past conversations")
+        title.set_name("tab-title")
+        title.set_hexpand(True)
+        title.set_xalign(0)
+        toolbar.append(title)
+
+        refresh_btn = Gtk.Button(label="↻")
+        refresh_btn.set_name("refresh-btn")
+        refresh_btn.set_tooltip_text("Refresh history")
+        refresh_btn.connect("clicked", lambda _: self.refresh())
+        toolbar.append(refresh_btn)
+
+        clear_btn = Gtk.Button(label="🗑 Clear all")
+        clear_btn.set_name("delete-btn")
+        clear_btn.set_tooltip_text("Permanently delete all conversation history")
+        clear_btn.connect("clicked", self._on_clear_all)
+        toolbar.append(clear_btn)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        self.append(scroll)
+
+        self._list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self._list.set_name("history-list")
+        scroll.set_child(self._list)
+
+    def refresh(self) -> None:
+        # Clear existing rows
+        while True:
+            child = self._list.get_first_child()
+            if child is None:
+                break
+            self._list.remove(child)
+
+        threading.Thread(target=self._load, daemon=True).start()
+
+    def _load(self) -> None:
+        try:
+            from pydbus import SessionBus
+            bus = SessionBus()
+            agent = bus.get(DBUS_AGENT, DBUS_AGENT_PATH)
+            raw = agent.GetHistory(30)
+            conversations = json.loads(raw)
+        except Exception as e:
+            conversations = []
+            GLib.idle_add(self._add_placeholder, f"Could not load history: {e}")
+            return
+
+        if not conversations:
+            GLib.idle_add(self._add_placeholder, "No conversation history yet.")
+            return
+
+        for conv in conversations:
+            GLib.idle_add(self._add_conv_row, conv)
+
+    def _add_conv_row(self, conv: dict) -> None:
+        # Outer wrapper holds the row + its separator so we can remove both
+        wrapper = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        wrapper.set_name("history-wrapper")
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.set_name("history-row")
+        row.set_margin_start(12)
+        row.set_margin_end(12)
+        row.set_margin_top(6)
+        row.set_margin_bottom(6)
+
+        # Text block (date + preview)
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        text_box.set_hexpand(True)
+
+        date_str = conv.get("updated_at", "")[:16].replace("T", "  ")
+        count = conv.get("message_count", 0)
+        header = Gtk.Label(label=f"{date_str}  ·  {count} messages")
+        header.set_name("history-date")
+        header.set_xalign(0)
+        text_box.append(header)
+
+        preview = Gtk.Label(label=conv.get("preview", ""))
+        preview.set_name("history-preview")
+        preview.set_xalign(0)
+        preview.set_wrap(True)
+        preview.set_max_width_chars(72)
+        text_box.append(preview)
+
+        row.append(text_box)
+
+        # Delete button for this conversation
+        conv_id = conv.get("id")
+        del_btn = Gtk.Button(label="🗑")
+        del_btn.set_name("row-delete-btn")
+        del_btn.set_tooltip_text("Delete this conversation")
+        del_btn.set_valign(Gtk.Align.CENTER)
+        del_btn.connect("clicked", self._on_delete_conv, conv_id, wrapper)
+        row.append(del_btn)
+
+        wrapper.append(row)
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        wrapper.append(sep)
+
+        self._list.append(wrapper)
+
+    def _on_delete_conv(self, _btn, conv_id: int, wrapper) -> None:
+        def _do():
+            try:
+                from pydbus import SessionBus
+                bus = SessionBus()
+                agent = bus.get(DBUS_AGENT, DBUS_AGENT_PATH)
+                agent.DeleteConversation(conv_id)
+            except Exception as e:
+                print(f"[chi-overlay] DeleteConversation error: {e}")
+            GLib.idle_add(self._list.remove, wrapper)
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _on_clear_all(self, _btn) -> None:
+        def _do():
+            try:
+                from pydbus import SessionBus
+                bus = SessionBus()
+                agent = bus.get(DBUS_AGENT, DBUS_AGENT_PATH)
+                agent.ClearAllHistory()
+            except Exception as e:
+                print(f"[chi-overlay] ClearAllHistory error: {e}")
+            GLib.idle_add(self.refresh)
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _add_placeholder(self, text: str) -> None:
+        lbl = Gtk.Label(label=text)
+        lbl.set_name("placeholder")
+        lbl.set_margin_top(40)
+        self._list.append(lbl)
+
+
+# ---------------------------------------------------------------------------
+# Data tab
+# ---------------------------------------------------------------------------
+
+class DataTab(Gtk.Box):
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        toolbar.set_name("tab-toolbar")
+        toolbar.set_margin_start(12)
+        toolbar.set_margin_end(12)
+        toolbar.set_margin_top(10)
+        toolbar.set_margin_bottom(10)
+        self.append(toolbar)
+
+        title = Gtk.Label(label="Data collected by chi")
+        title.set_name("tab-title")
+        title.set_hexpand(True)
+        title.set_xalign(0)
+        toolbar.append(title)
+
+        refresh_btn = Gtk.Button(label="↻")
+        refresh_btn.set_name("refresh-btn")
+        refresh_btn.set_tooltip_text("Refresh data")
+        refresh_btn.connect("clicked", lambda _: self.refresh())
+        toolbar.append(refresh_btn)
+
+        export_btn = Gtk.Button(label="Export JSON")
+        export_btn.set_name("export-btn")
+        export_btn.set_tooltip_text("Save all data to ~/Downloads/chi-data.json")
+        export_btn.connect("clicked", self._on_export)
+        toolbar.append(export_btn)
+
+        clear_btn = Gtk.Button(label="🗑 Clear data")
+        clear_btn.set_name("delete-btn")
+        clear_btn.set_tooltip_text("Permanently delete all collected tool data")
+        clear_btn.connect("clicked", self._on_clear_data)
+        toolbar.append(clear_btn)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        self.append(scroll)
+
+        self._textview = Gtk.TextView()
+        self._textview.set_name("data-view")
+        self._textview.set_editable(False)
+        self._textview.set_monospace(True)
+        self._textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self._buffer = self._textview.get_buffer()
+        scroll.set_child(self._textview)
+
+    def refresh(self) -> None:
+        self._buffer.set_text("Loading…")
+        threading.Thread(target=self._load, daemon=True).start()
+
+    def _load(self) -> None:
+        try:
+            from pydbus import SessionBus
+            bus = SessionBus()
+            agent = bus.get(DBUS_AGENT, DBUS_AGENT_PATH)
+            raw = agent.GetData(50)
+            data = json.loads(raw)
+            text = json.dumps(data, indent=2, ensure_ascii=False)
+        except Exception as e:
+            text = f"Could not load data: {e}"
+        GLib.idle_add(self._buffer.set_text, text)
+
+    def _on_export(self, _btn) -> None:
+        def _do():
+            try:
+                from pydbus import SessionBus
+                bus = SessionBus()
+                agent = bus.get(DBUS_AGENT, DBUS_AGENT_PATH)
+                raw = agent.GetData(1000)
+                out = Path.home() / "Downloads" / "chi-data.json"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_text(raw)
+                GLib.idle_add(self._buffer.set_text, f"Exported to {out}\n\n" + raw)
+            except Exception as e:
+                GLib.idle_add(self._buffer.set_text, f"Export failed: {e}")
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _on_clear_data(self, _btn) -> None:
+        def _do():
+            try:
+                from pydbus import SessionBus
+                bus = SessionBus()
+                agent = bus.get(DBUS_AGENT, DBUS_AGENT_PATH)
+                agent.ClearData()
+                GLib.idle_add(self._buffer.set_text, "All collected data has been deleted.")
+            except Exception as e:
+                GLib.idle_add(self._buffer.set_text, f"Clear failed: {e}")
+
+        threading.Thread(target=_do, daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
+# Main overlay window
+# ---------------------------------------------------------------------------
 
 class ChiOverlay(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application):
         super().__init__(application=app)
         self.set_title("chi")
-        self.set_default_size(620, 80)
-        self.set_decorated(False)
-        self.set_resizable(False)
+        self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.set_resizable(True)
+        self.add_css_class("chi-overlay-window")
 
-        # Load CSS
-        css_provider = Gtk.CssProvider()
-        try:
-            css_provider.load_from_path(CSS_FILE)
-        except Exception:
-            css_provider.load_from_string(self._default_css())
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-        )
-
-        self.add_css_class("chi-overlay")
-
-        # Layout
-        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        self._box.set_margin_start(16)
-        self._box.set_margin_end(16)
-        self._box.set_margin_top(12)
-        self._box.set_margin_bottom(12)
-        self.set_child(self._box)
-
-        # Input row
-        input_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self._box.append(input_row)
-
-        label = Gtk.Label(label="chi")
-        label.add_css_class("chi-label")
-        input_row.append(label)
-
-        self._entry = Gtk.Entry()
-        self._entry.set_hexpand(True)
-        self._entry.set_placeholder_text("Ask chi anything…")
-        self._entry.add_css_class("chi-entry")
-        self._entry.connect("activate", self._on_submit)
-        input_row.append(self._entry)
-
-        # Response area
-        self._response_label = Gtk.Label()
-        self._response_label.set_wrap(True)
-        self._response_label.set_xalign(0)
-        self._response_label.add_css_class("chi-response")
-        self._response_label.set_visible(False)
-        self._box.append(self._response_label)
-
-        # Action log
-        self._action_label = Gtk.Label()
-        self._action_label.set_xalign(0)
-        self._action_label.add_css_class("chi-action")
-        self._action_label.set_visible(False)
-        self._box.append(self._action_label)
+        # Prevent window destruction on close — just hide it
+        self.connect("close-request", self._on_close_request)
 
         # Close on Escape
         key_ctrl = Gtk.EventControllerKey()
         key_ctrl.connect("key-pressed", self._on_key)
         self.add_controller(key_ctrl)
 
-        # Focus entry on show
-        self._entry.grab_focus()
+        # Header bar
+        header = Gtk.HeaderBar()
+        header.set_name("chi-header")
+        title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        icon = Gtk.Label(label="✦")
+        icon.set_name("header-icon")
+        brand = Gtk.Label(label="chi")
+        brand.set_name("header-brand")
+        title_box.append(icon)
+        title_box.append(brand)
+        header.set_title_widget(title_box)
+        self.set_titlebar(header)
 
-        # D-Bus proxy (lazy)
-        self._agent_proxy = None
+        # Notebook (tabs)
+        self._notebook = Gtk.Notebook()
+        self._notebook.set_name("chi-notebook")
+        self._notebook.connect("switch-page", self._on_tab_switch)
+        self.set_child(self._notebook)
 
-    def _default_css(self) -> str:
-        return """
-        .chi-overlay {
-            background-color: rgba(15, 15, 20, 0.92);
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .chi-label {
-            color: #7c6af7;
-            font-weight: bold;
-            font-size: 14px;
-            min-width: 30px;
-        }
-        .chi-entry {
-            background: transparent;
-            border: none;
-            color: #e8e8f0;
-            font-size: 15px;
-            caret-color: #7c6af7;
-        }
-        entry { box-shadow: none; }
-        .chi-response {
-            color: #c8c8d8;
-            font-size: 13px;
-            padding-top: 4px;
-        }
-        .chi-action {
-            color: #5a8a6a;
-            font-size: 12px;
-            font-style: italic;
-        }
-        """
+        # Chat tab
+        self._chat = ChatTab(self)
+        chat_lbl = Gtk.Label(label="Chat")
+        self._notebook.append_page(self._chat, chat_lbl)
 
-    def _get_agent(self):
-        if self._agent_proxy is not None:
-            return self._agent_proxy
-        try:
-            from pydbus import SessionBus
-            bus = SessionBus()
-            self._agent_proxy = bus.get(DBUS_NAME, DBUS_PATH)
-            return self._agent_proxy
-        except Exception as e:
-            return None
+        # History tab
+        self._history = HistoryTab()
+        hist_lbl = Gtk.Label(label="History")
+        self._notebook.append_page(self._history, hist_lbl)
 
-    def _on_submit(self, entry: Gtk.Entry) -> None:
-        prompt = entry.get_text().strip()
-        if not prompt:
-            return
+        # Data tab
+        self._data = DataTab()
+        data_lbl = Gtk.Label(label="Data")
+        self._notebook.append_page(self._data, data_lbl)
 
-        entry.set_sensitive(False)
-        self._show_action("Thinking…")
-        self._response_label.set_visible(False)
+    def show_and_focus(self) -> None:
+        self.present()
+        self._chat.focus_entry()
 
-        def _ask():
-            agent = self._get_agent()
-            if agent is None:
-                GLib.idle_add(self._show_error, "chi-agent not running")
-                return
-            try:
-                response = agent.Ask(prompt)
-                GLib.idle_add(self._show_response, response)
-            except Exception as e:
-                GLib.idle_add(self._show_error, str(e))
+    def _on_close_request(self, _win) -> bool:
+        self.hide()
+        return True  # Prevent destroy
 
-        threading.Thread(target=_ask, daemon=True).start()
-
-    def _show_action(self, text: str) -> None:
-        self._action_label.set_text(text)
-        self._action_label.set_visible(True)
-        self._resize()
-
-    def _show_response(self, text: str) -> None:
-        self._action_label.set_visible(False)
-        self._response_label.set_text(text)
-        self._response_label.set_visible(True)
-        self._entry.set_sensitive(True)
-        self._entry.set_text("")
-        self._entry.grab_focus()
-        self._resize()
-        # Auto-close after 8 seconds if no follow-up
-        GLib.timeout_add_seconds(8, self._auto_close)
-
-    def _show_error(self, error: str) -> None:
-        self._action_label.set_visible(False)
-        self._response_label.set_markup(f'<span color="#c05050">Error: {GLib.markup_escape_text(error)}</span>')
-        self._response_label.set_visible(True)
-        self._entry.set_sensitive(True)
-        self._entry.grab_focus()
-        self._resize()
-
-    def _resize(self) -> None:
-        # Expand height to fit content
-        self.set_default_size(620, -1)
-
-    def _auto_close(self) -> bool:
-        if not self._entry.has_focus():
-            self.close()
-        return False  # don't repeat
-
-    def _on_key(self, ctrl, keyval, keycode, state) -> bool:
+    def _on_key(self, _ctrl, keyval, _code, _state) -> bool:
         if keyval == Gdk.KEY_Escape:
-            self.close()
+            self.hide()
             return True
         return False
 
+    def _on_tab_switch(self, _nb, _page, page_num: int) -> None:
+        if page_num == 1:
+            self._history.refresh()
+        elif page_num == 2:
+            self._data.refresh()
+
+
+# ---------------------------------------------------------------------------
+# Application (singleton via IS_SERVICE)
+# ---------------------------------------------------------------------------
 
 class ChiOverlayApp(Gtk.Application):
     def __init__(self):
         super().__init__(
             application_id="io.chios.Overlay",
-            flags=Gio.ApplicationFlags.FLAGS_NONE,
+            flags=Gio.ApplicationFlags.IS_SERVICE,
         )
-        self._window = None
+        self._window: ChiOverlay | None = None
 
     def do_activate(self):
         if self._window is None:
+            css = Gtk.CssProvider()
+            css_path = Path(CSS_FILE)
+            if css_path.exists():
+                css.load_from_path(str(css_path))
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                css,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            )
             self._window = ChiOverlay(self)
-        self._window.present()
+
+        self._window.show_and_focus()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="chi-overlay GTK4 popup")
-    parser.add_argument("--daemon", action="store_true", help="Run as daemon")
-    args = parser.parse_args()
-
     app = ChiOverlayApp()
     sys.exit(app.run(None))
 

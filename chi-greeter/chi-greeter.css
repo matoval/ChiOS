@@ -1,0 +1,119 @@
+/* chi-greeter — login screen CSS */
+
+* { box-sizing: border-box; }
+
+#greeter-bg {
+    background: linear-gradient(135deg, #08080f 0%, #0f0a1e 45%, #08080f 100%);
+}
+
+#greeter-card {
+    background: rgba(16, 14, 28, 0.88);
+    border: 1px solid rgba(124, 106, 247, 0.22);
+    border-radius: 20px;
+    padding: 52px 60px 44px;
+    min-width: 370px;
+}
+
+/* Logo block */
+#greeter-logo-block { }
+
+#greeter-logo-icon {
+    color: #7c6af7;
+    font-size: 52px;
+    margin-bottom: 2px;
+}
+
+#greeter-brand {
+    color: #e8e8f0;
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    font-family: "Inter", sans-serif;
+}
+
+#greeter-tagline {
+    color: rgba(232, 232, 240, 0.45);
+    font-size: 14px;
+    font-family: "Inter", sans-serif;
+}
+
+/* Clock */
+#greeter-clock {
+    color: #e8e8f0;
+    font-size: 54px;
+    font-weight: 200;
+    font-family: "Inter", sans-serif;
+    margin-top: 4px;
+}
+
+#greeter-date {
+    color: rgba(232, 232, 240, 0.5);
+    font-size: 14px;
+    font-family: "Inter", sans-serif;
+}
+
+/* Login form */
+#greeter-form { align-items: stretch; }
+
+#greeter-entry {
+    all: unset;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: #e8e8f0;
+    font-size: 14px;
+    font-family: "Inter", sans-serif;
+    caret-color: #7c6af7;
+    transition: border-color 150ms, background 150ms;
+}
+
+#greeter-entry:focus {
+    border-color: rgba(124, 106, 247, 0.55);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+#greeter-error {
+    color: #f87171;
+    font-size: 13px;
+    font-family: "Inter", sans-serif;
+    min-height: 20px;
+}
+
+#greeter-login-btn {
+    all: unset;
+    background: #7c6af7;
+    border-radius: 10px;
+    padding: 13px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: "Inter", sans-serif;
+    cursor: pointer;
+    text-align: center;
+    transition: background 150ms;
+}
+
+#greeter-login-btn:hover  { background: #6b5ce6; }
+#greeter-login-btn:active { background: #5a4bd4; }
+
+/* Power buttons */
+#greeter-power { }
+
+#power-btn {
+    all: unset;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: rgba(232, 232, 240, 0.6);
+    font-size: 13px;
+    font-family: "Inter", sans-serif;
+    cursor: pointer;
+    transition: all 150ms;
+}
+
+#power-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e8e8f0;
+}

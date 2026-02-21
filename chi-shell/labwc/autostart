@@ -1,0 +1,17 @@
+#!/bin/bash
+# chiOS labwc autostart — runs after the compositor initialises
+
+# Audio
+systemctl --user start pipewire pipewire-pulse wireplumber
+
+# Network tray applet
+nm-applet --indicator &
+
+# User home directories
+xdg-user-dirs-update &
+
+# chi desktop panel (layer-shell bar)
+chi-shell &
+
+# chi-overlay daemon (start hidden; shows when chi-shell button is clicked)
+python3 /usr/lib/chi-overlay/overlay.py &

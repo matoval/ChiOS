@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-DONE_FILE="/var/lib/chi-firstboot.done"
+DONE_FILE="$HOME/.local/share/chi/firstboot.done"
 LOG_FILE="$HOME/.local/share/chi/firstboot.log"
 
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -43,10 +43,21 @@ echo "==> Setting up Ollama Podman Quadlet..."
 
 QUADLET_DIR="$HOME/.config/containers/systemd"
 mkdir -p "$QUADLET_DIR"
+mkdir -p "$HOME/.ollama"
 
 # quadlet is already placed in skel, but ensure it's present
 if [ ! -f "$QUADLET_DIR/ollama.container" ]; then
     cp /usr/share/chi-quadlets/ollama.container "$QUADLET_DIR/ollama.container"
+fi
+
+# Pre-load the bundled Ollama image so Podman doesn't need to pull it
+if [ -f /usr/share/chi-ollama/ollama.tar ]; then
+    echo "    Loading bundled Ollama image..."
+    if podman load -i /usr/share/chi-ollama/ollama.tar; then
+        echo "    Ollama image loaded from bundle"
+    else
+        echo "    WARNING: Could not pre-load Ollama image, will pull from registry"
+    fi
 fi
 
 systemctl --user daemon-reload
@@ -59,7 +70,7 @@ echo "    Ollama Quadlet enabled"
 echo "==> Waiting for Ollama to start..."
 notify "Setting up chiOS AI — pulling language model (this may take a few minutes)…"
 
-RETRIES=30
+RETRIES=120
 for i in $(seq 1 $RETRIES); do
     if curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
         echo "    Ollama is ready"
@@ -78,6 +89,7 @@ done
 echo "==> Pulling Qwen 3 8B model (~5GB download)..."
 notify "Downloading Qwen 3 8B model (~5GB). chi will be ready when complete."
 
+export OLLAMA_HOST=http://localhost:11434
 ollama pull qwen3:8b
 
 echo "    Model pulled successfully"
@@ -153,10 +165,10 @@ systemctl --user start chi-agent 2>/dev/null || echo "    (chi-agent runs as sys
 # 10. Final
 # ---------------------------------------------------------------------------
 echo "==> chiOS first-boot complete!"
-notify "chiOS setup complete! Press Super+Space to talk to chi."
+notify "chiOS setup complete! Click '✦ Ask chi…' in the panel to get started."
 
 # Mark complete so this doesn't run again
-sudo touch "$DONE_FILE" 2>/dev/null || touch "$HOME/.chi-firstboot.done"
+touch "$DONE_FILE"
 
 # Self-disable
 systemctl --user disable chi-firstboot 2>/dev/null || true

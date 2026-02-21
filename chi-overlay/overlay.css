@@ -1,51 +1,240 @@
-/* chi-overlay — transparent dark floating window */
+/* chi-overlay v2 — tabbed AI assistant */
 
-window.chi-overlay {
-    background-color: rgba(15, 15, 20, 0.92);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+* { box-sizing: border-box; }
+
+.chi-overlay-window {
+    background: rgba(12, 11, 20, 0.97);
+    color: #e8e8f0;
+    font-family: "Inter", "Noto Sans", sans-serif;
 }
 
-.chi-label {
+/* Header */
+#chi-header {
+    background: rgba(18, 16, 30, 0.98);
+    border-bottom: 1px solid rgba(124, 106, 247, 0.20);
+    min-height: 46px;
+}
+
+#header-icon {
     color: #7c6af7;
-    font-weight: 700;
-    font-size: 14px;
-    font-family: "JetBrains Mono", "Fira Code", monospace;
-    min-width: 32px;
+    font-size: 16px;
 }
 
-.chi-entry {
-    background: transparent;
-    border: none;
-    outline: none;
+#header-brand {
     color: #e8e8f0;
     font-size: 15px;
-    font-family: "Inter", "Noto Sans", sans-serif;
-    caret-color: #7c6af7;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
-entry {
-    box-shadow: none;
-    background: transparent;
+/* Notebook tabs */
+#chi-notebook > header {
+    background: rgba(18, 16, 30, 0.98);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-entry:focus {
-    box-shadow: none;
-    outline: none;
-}
-
-.chi-response {
-    color: #c8c8d8;
+#chi-notebook tab {
+    color: rgba(232, 232, 240, 0.55);
     font-size: 13px;
-    font-family: "Inter", "Noto Sans", sans-serif;
-    padding-top: 4px;
-    line-height: 1.5;
+    padding: 8px 18px;
+    border: none;
+    transition: color 150ms;
 }
 
-.chi-action {
-    color: #5a8a6a;
-    font-size: 12px;
+#chi-notebook tab:checked {
+    color: #e8e8f0;
+    border-bottom: 2px solid #7c6af7;
+}
+
+/* Message list */
+#msg-list {
+    padding: 8px 0;
+}
+
+.msg-row {
+    padding: 6px 0;
+    border-radius: 6px;
+}
+
+.msg-user { }
+
+.msg-assistant {
+    background: rgba(124, 106, 247, 0.07);
+    border-left: 2px solid rgba(124, 106, 247, 0.4);
+    padding-left: 10px;
+    border-radius: 0 6px 6px 0;
+}
+
+.msg-who {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 2px;
+}
+
+.msg-user .msg-who   { color: rgba(232, 232, 240, 0.45); }
+.msg-assistant .msg-who { color: #7c6af7; }
+
+.msg-text {
+    font-size: 14px;
+    color: #e0e0ee;
+    line-height: 1.55;
+}
+
+/* Input bar */
+#input-bar {
+    background: rgba(18, 16, 30, 0.6);
+}
+
+#chi-entry {
+    all: unset;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: #e8e8f0;
+    font-size: 14px;
+    caret-color: #7c6af7;
+    transition: border-color 150ms;
+}
+
+#chi-entry:focus {
+    border-color: rgba(124, 106, 247, 0.5);
+    background: rgba(255, 255, 255, 0.09);
+}
+
+#send-btn {
+    all: unset;
+    background: #7c6af7;
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 150ms;
+}
+
+#send-btn:hover  { background: #6b5ce6; }
+#send-btn:active { background: #5a4bd4; }
+
+#voice-btn {
+    all: unset;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 150ms;
+}
+
+#voice-btn:hover { background: rgba(255, 255, 255, 0.12); }
+
+#thinking-label {
+    color: #7c6af7;
+    font-size: 13px;
     font-style: italic;
-    font-family: "Inter", "Noto Sans", sans-serif;
+    margin-bottom: 4px;
+}
+
+/* Tab toolbars */
+#tab-toolbar {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(18, 16, 30, 0.5);
+    padding: 6px 12px;
+}
+
+#tab-title {
+    color: rgba(232, 232, 240, 0.7);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#refresh-btn, #export-btn {
+    all: unset;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: rgba(232, 232, 240, 0.7);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 150ms;
+}
+
+#refresh-btn:hover, #export-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #e8e8f0;
+}
+
+/* Destructive delete buttons */
+#delete-btn {
+    all: unset;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: rgba(248, 113, 113, 0.8);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 150ms;
+}
+
+#delete-btn:hover {
+    background: rgba(248, 113, 113, 0.18);
+    border-color: rgba(248, 113, 113, 0.5);
+    color: #f87171;
+}
+
+/* Per-row delete button in history */
+#row-delete-btn {
+    all: unset;
+    color: rgba(248, 113, 113, 0.4);
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 150ms;
+}
+
+#row-delete-btn:hover {
+    background: rgba(248, 113, 113, 0.12);
+    color: #f87171;
+}
+
+/* History list */
+#history-list { padding: 4px 0; }
+
+#history-row {
+    padding: 8px 0;
+}
+
+#history-date {
+    color: rgba(232, 232, 240, 0.45);
+    font-size: 11px;
+}
+
+#history-preview {
+    color: rgba(232, 232, 240, 0.75);
+    font-size: 13px;
+}
+
+#placeholder {
+    color: rgba(232, 232, 240, 0.35);
+    font-size: 14px;
+}
+
+/* Data text view */
+#data-view {
+    background: transparent;
+    color: #c8ffc8;
+    font-size: 12px;
+    padding: 12px;
+}
+
+#data-view text {
+    background: transparent;
+    color: #c8ffc8;
 }

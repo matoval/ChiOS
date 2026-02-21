@@ -1,0 +1,35 @@
+---
+# chiOS Calamares branding
+
+componentName: chios
+
+# Strings shown throughout the installer
+strings:
+    productName:         "chiOS"
+    shortProductName:    "chiOS"
+    version:             ""
+    shortVersion:        ""
+    versionedName:       "chiOS"
+    shortVersionedName:  "chiOS"
+    bootloaderEntryName: "chiOS"
+    productUrl:          "https://github.com/matoval/chios"
+    supportUrl:          "https://github.com/matoval/chios/issues"
+    knownIssuesUrl:      "https://github.com/matoval/chios/issues"
+    releaseNotesUrl:     "https://github.com/matoval/chios/releases"
+
+# Slideshow shown during installation
+slideshowAPI: 2
+slideshow:    show.qml
+
+# Window geometry
+windowExpanding:  normal
+windowSize:       800px,520px
+windowPlacement:  center
+
+# Sidebar/navigation style
+sidebarBackground:  "#0c0b14"
+sidebarText:        "#e8e8f0"
+sidebarTextSelect:  "#7c6af7"
+
+# Button style
+styleSheet:         style.qss

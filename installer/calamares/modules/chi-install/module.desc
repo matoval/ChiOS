@@ -1,0 +1,5 @@
+---
+type:      "job"
+name:      "chi-install"
+interface: "python"
+requires:  []

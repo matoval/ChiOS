@@ -299,6 +299,13 @@ def chat(prompt: str, history: list[dict] | None = None) -> tuple[str, list[dict
 
             log.info(f"Tool result: {result}")
 
+            # Persist tool data for the Data tab
+            try:
+                from history import record_tool_data
+                record_tool_data(fn_name, result)
+            except Exception:
+                pass
+
             messages.append({
                 "role": "tool",
                 "content": json.dumps(result) if not isinstance(result, str) else result,

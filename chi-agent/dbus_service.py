@@ -15,13 +15,17 @@ Signals:
   - StatusChanged(status: str)
 """
 
+import json
 import logging
 import threading
 import uuid
 from typing import Callable
 
 from pydbus import SessionBus
+from pydbus.generic import signal
 from gi.repository import GLib
+
+import history as hist
 
 log = logging.getLogger("chi-agent.dbus")
 
@@ -46,6 +50,27 @@ DBUS_XML = """
       <arg type='s' name='status' direction='out'/>
     </method>
 
+    <method name='GetHistory'>
+      <arg type='i' name='limit' direction='in'/>
+      <arg type='s' name='json' direction='out'/>
+    </method>
+
+    <method name='GetData'>
+      <arg type='i' name='limit' direction='in'/>
+      <arg type='s' name='json' direction='out'/>
+    </method>
+
+    <method name='DeleteConversation'>
+      <arg type='i' name='conv_id' direction='in'/>
+      <arg type='b' name='deleted' direction='out'/>
+    </method>
+
+    <method name='ClearAllHistory'>
+    </method>
+
+    <method name='ClearData'>
+    </method>
+
     <signal name='ResponseReady'>
       <arg type='s' name='job_id'/>
       <arg type='s' name='response'/>
@@ -63,6 +88,9 @@ DBUS_XML = """
 class ChiAgentService:
     dbus = DBUS_XML
 
+    ResponseReady = signal()
+    StatusChanged = signal()
+
     def __init__(self, chat_fn: Callable):
         self._chat = chat_fn
         self._status = "ready"
@@ -73,7 +101,9 @@ class ChiAgentService:
         with self._lock:
             self._set_status("thinking")
             try:
+                hist.append_message("user", prompt)
                 response, self._history = self._chat(prompt, self._history)
+                hist.append_message("assistant", response)
                 self._set_status("ready")
                 return response
             except Exception as e:
@@ -88,13 +118,15 @@ class ChiAgentService:
             with self._lock:
                 self._set_status("thinking")
                 try:
+                    hist.append_message("user", prompt)
                     response, self._history = self._chat(prompt, self._history)
+                    hist.append_message("assistant", response)
                     self._set_status("ready")
                 except Exception as e:
                     response = f"Error: {e}"
                     self._set_status("error")
                     log.error(f"D-Bus AskAsync error: {e}")
-            self.ResponseReady(job_id, response)
+            GLib.idle_add(self.ResponseReady, job_id, response)
 
         threading.Thread(target=_worker, daemon=True).start()
         return job_id
@@ -102,16 +134,43 @@ class ChiAgentService:
     def GetStatus(self) -> str:
         return self._status
 
-    def ResponseReady(self, job_id: str, response: str) -> None:
-        # Signal emission handled by pydbus automatically via annotation
-        pass
+    def GetHistory(self, limit: int) -> str:
+        try:
+            return json.dumps(hist.get_history(limit))
+        except Exception as e:
+            log.error(f"GetHistory error: {e}")
+            return "[]"
 
-    def StatusChanged(self, status: str) -> None:
-        pass
+    def GetData(self, limit: int) -> str:
+        try:
+            return json.dumps(hist.get_data(limit))
+        except Exception as e:
+            log.error(f"GetData error: {e}")
+            return "[]"
+
+    def DeleteConversation(self, conv_id: int) -> bool:
+        try:
+            return hist.delete_conversation(conv_id)
+        except Exception as e:
+            log.error(f"DeleteConversation error: {e}")
+            return False
+
+    def ClearAllHistory(self) -> None:
+        try:
+            hist.clear_all_history()
+        except Exception as e:
+            log.error(f"ClearAllHistory error: {e}")
+
+    def ClearData(self) -> None:
+        try:
+            hist.clear_data()
+        except Exception as e:
+            log.error(f"ClearData error: {e}")
 
     def _set_status(self, status: str) -> None:
         self._status = status
-        self.StatusChanged(status)
+        # Emit signal safely from the GLib main loop thread
+        GLib.idle_add(self.StatusChanged, status)
 
 
 def run_dbus_service() -> None:
