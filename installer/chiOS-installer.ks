@@ -9,9 +9,11 @@ selinux --disabled
 firewall --disabled
 rootpw --lock
 
-# Package source — livemedia-creator --no-virt requires url/nfs/ostreesetup
-url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-42&arch=x86_64
-repo --name="updates" --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f42&arch=x86_64
+# Package source — livemedia-creator --no-virt requires url/nfs/ostreesetup.
+# Must use --url= (not --mirrorlist) — lorax reads ks.method.url directly and
+# crashes with AttributeError if only mirrorlist is set (url attribute is None).
+url --url=https://dl.fedoraproject.org/pub/fedora/linux/releases/42/Everything/x86_64/os/
+repo --name="updates" --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/42/Everything/x86_64/
 
 # Packages for the live environment
 %packages
