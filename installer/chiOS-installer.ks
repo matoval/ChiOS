@@ -68,6 +68,12 @@ curl
 
 # Live ISO tooling
 dracut-live
+
+# EFI boot — lorax's x86.tmpl reads these from the installed system to build
+# the EFI-bootable ISO. Without them, xorrisofs fails: EFI/BOOT not found.
+grub2-efi-x64
+grub2-efi-x64-cdboot
+shim-x64
 %end
 
 %post --nochroot
