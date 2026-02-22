@@ -8,6 +8,7 @@ timezone UTC
 selinux --disabled
 firewall --disabled
 rootpw --lock
+network --bootproto=dhcp --activate
 
 # Package source — livemedia-creator --no-virt requires url/nfs/ostreesetup.
 # Must use --url= (not --mirrorlist) — lorax reads ks.method.url directly and
