@@ -36,10 +36,11 @@ nm-connection-editor
 
 # Display / Xorg
 xorg-x11-server-Xorg
+xorg-x11-xinit
 xorg-x11-drv-libinput
-xorg-x11-drv-fbdev
 mesa-dri-drivers
 mesa-vulkan-drivers
+xsetroot
 
 # Minimal window manager for installer (Openbox + Xterm for fallback)
 openbox
