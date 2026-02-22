@@ -29,14 +29,16 @@ echo "    Output: ${OUTPUT_DIR}"
 
 dnf install -y \
   lorax \
+  anaconda \
   calamares \
   genisoimage \
   squashfs-tools \
   syslinux \
   grub2-efi-x64 \
   shim-x64
-# Note: python3-calamares and calamares-libs are not separate packages in
-# Fedora 42 — Python module support is bundled inside calamares itself.
+# Note: anaconda is required by livemedia-creator --no-virt to install packages
+# into the live environment chroot. python3-calamares and calamares-libs do not
+# exist as separate packages in Fedora 42; support is bundled inside calamares.
 
 echo "==> Build tools installed"
 
@@ -72,7 +74,9 @@ echo "==> Calamares config staged"
 # 3. Build the live ISO with livemedia-creator
 # ---------------------------------------------------------------------------
 
-mkdir -p "${OUTPUT_DIR}"
+# Note: livemedia-creator requires --resultdir to NOT exist beforehand
+# It creates the directory itself; pre-creating it causes an immediate error.
+mkdir -p /tmp/livemedia-tmp
 
 livemedia-creator \
   --ks "${SCRIPT_DIR}/chiOS-installer.ks" \

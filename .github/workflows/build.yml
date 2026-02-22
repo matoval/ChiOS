@@ -111,6 +111,7 @@ jobs:
           dnf install -y \
             git \
             lorax \
+            anaconda \
             calamares \
             genisoimage \
             squashfs-tools \
@@ -150,7 +151,8 @@ jobs:
             /etc/calamares/modules/chi-install/main.py
 
           # Build the live ISO
-          mkdir -p /iso-output /tmp/livemedia-tmp
+          # Note: livemedia-creator requires --resultdir to NOT exist beforehand
+          mkdir -p /tmp/livemedia-tmp
           livemedia-creator \
             --ks installer/chiOS-installer.ks \
             --no-virt \
