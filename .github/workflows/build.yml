@@ -162,8 +162,23 @@ jobs:
             --resultdir /iso-output \
             --tmp /tmp/livemedia-tmp
 
-      - name: List ISO output (debug)
-        run: find /iso-output -type f 2>/dev/null || echo "Directory empty or missing"
+      - name: Locate and rename ISO
+        run: |
+          echo "==> Contents of /iso-output:"
+          find /iso-output -type f 2>/dev/null || echo "  (empty or missing)"
+
+          # lorax may name the ISO 'boot.iso' regardless of --iso-name; find and rename it
+          FOUND=$(find /iso-output -name "*.iso" -type f 2>/dev/null | head -1)
+          if [ -z "$FOUND" ]; then
+            echo "ERROR: No .iso file found in /iso-output"
+            exit 1
+          fi
+          echo "Found ISO at: $FOUND"
+          TARGET="/iso-output/${ISO_NAME}"
+          if [ "$FOUND" != "$TARGET" ]; then
+            mv "$FOUND" "$TARGET"
+            echo "Renamed to: $TARGET"
+          fi
 
       - name: Generate SHA-256 checksum
         run: |
