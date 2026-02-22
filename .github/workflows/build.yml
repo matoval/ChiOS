@@ -88,10 +88,17 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────
   # Job 2: Build the live installer ISO (version tags only)
+  #
+  # Runs the entire job inside a privileged Fedora 42 container so that
+  # livemedia-creator has direct access to loop devices and dnf without
+  # any container-in-container nesting.
   # ─────────────────────────────────────────────────────────────────────────
   build-iso:
     name: Build Installer ISO
     runs-on: ubuntu-latest
+    container:
+      image: quay.io/fedora/fedora:42
+      options: --privileged
     needs: build-image
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -99,39 +106,63 @@ jobs:
       packages: read
 
     steps:
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            git \
+            lorax \
+            calamares \
+            genisoimage \
+            squashfs-tools \
+            syslinux \
+            grub2-efi-x64 \
+            shim-x64
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Podman
+      - name: Stage Calamares configuration and build ISO
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
+          set -euxo pipefail
 
-      - name: Build installer ISO
-        run: |
           VERSION="${GITHUB_REF#refs/tags/}"
           ISO_NAME="chiOS-${VERSION}-installer.iso"
           CHIOS_IMAGE="${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
 
-          mkdir -p output
+          echo "ISO_NAME=${ISO_NAME}" >> "${GITHUB_ENV}"
 
-          # The Fedora container builds the live ISO using lorax/livemedia-creator.
-          # GHCR credentials are NOT needed here — the chiOS image is pulled at
-          # install time by the chi-install Calamares module, not during ISO build.
-          sudo podman run --rm --privileged \
-            -v "$(pwd)/installer:/installer:ro" \
-            -v "$(pwd)/output:/output" \
-            -e CHIOS_IMAGE="${CHIOS_IMAGE}" \
-            -e ISO_NAME="${ISO_NAME}" \
-            -e OUTPUT_DIR="/output" \
-            quay.io/fedora/fedora:42 \
-            bash -x /installer/build-installer.sh
+          # Stage Calamares config into /etc/calamares
+          mkdir -p /etc/calamares/modules/chi-install
+          mkdir -p /etc/calamares/branding/chios
 
-          echo "ISO_NAME=${ISO_NAME}" >> $GITHUB_ENV
+          cp installer/calamares/settings.conf          /etc/calamares/settings.conf
+          cp -r installer/calamares/branding/chios/.    /etc/calamares/branding/chios/
+          cp installer/calamares/modules/partition.conf /etc/calamares/modules/
+          cp installer/calamares/modules/users.conf     /etc/calamares/modules/
+          cp installer/calamares/modules/finished.conf  /etc/calamares/modules/
+          cp installer/calamares/modules/chi-install/module.desc \
+             /etc/calamares/modules/chi-install/
+          cp installer/calamares/modules/chi-install/main.py \
+             /etc/calamares/modules/chi-install/
+
+          # Inject the target OCI image URL into the install module
+          sed -i "s|CHIOS_IMAGE_PLACEHOLDER|${CHIOS_IMAGE}|g" \
+            /etc/calamares/modules/chi-install/main.py
+
+          # Build the live ISO
+          mkdir -p /iso-output /tmp/livemedia-tmp
+          livemedia-creator \
+            --ks installer/chiOS-installer.ks \
+            --no-virt \
+            --project "chiOS" \
+            --make-iso \
+            --iso-name "${ISO_NAME}" \
+            --resultdir /iso-output \
+            --tmp /tmp/livemedia-tmp
 
       - name: Generate SHA-256 checksum
         run: |
-          cd output
+          cd /iso-output
           sha256sum "${ISO_NAME}" > SHA256SUMS
           cat SHA256SUMS
 
@@ -167,8 +198,8 @@ jobs:
             sha256sum -c SHA256SUMS
             ```
           files: |
-            output/${{ env.ISO_NAME }}
-            output/SHA256SUMS
+            /iso-output/${{ env.ISO_NAME }}
+            /iso-output/SHA256SUMS
           draft: false
           prerelease: false
         env:

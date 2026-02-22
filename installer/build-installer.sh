@@ -30,13 +30,13 @@ echo "    Output: ${OUTPUT_DIR}"
 dnf install -y \
   lorax \
   calamares \
-  calamares-libs \
-  python3-calamares \
   genisoimage \
   squashfs-tools \
   syslinux \
   grub2-efi-x64 \
   shim-x64
+# Note: python3-calamares and calamares-libs are not separate packages in
+# Fedora 42 — Python module support is bundled inside calamares itself.
 
 echo "==> Build tools installed"
 
