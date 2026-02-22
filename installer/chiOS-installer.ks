@@ -10,6 +10,11 @@ firewall --disabled
 rootpw --lock
 network --bootproto=dhcp --activate
 
+# Root partition for the live environment working disk image.
+# livemedia-creator builds into this disk image, then squashes it into the ISO.
+# Size needs to fit @core + @hardware-support + calamares + bootc + podman (~8 GB).
+part / --size=12288 --fstype=ext4
+
 # Package source — livemedia-creator --no-virt requires url/nfs/ostreesetup.
 # Must use --url= (not --mirrorlist) — lorax reads ks.method.url directly and
 # crashes with AttributeError if only mirrorlist is set (url attribute is None).
