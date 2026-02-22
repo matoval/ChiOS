@@ -9,6 +9,10 @@ selinux --disabled
 firewall --disabled
 rootpw --lock
 
+# Package source — livemedia-creator --no-virt requires url/nfs/ostreesetup
+url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-42&arch=x86_64
+repo --name="updates" --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f42&arch=x86_64
+
 # Packages for the live environment
 %packages
 # Core system
@@ -36,7 +40,6 @@ xdg-utils
 
 # Calamares installer
 calamares
-calamares-libs
 
 # bootc (pulls the chiOS image during install)
 bootc
@@ -99,8 +102,8 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
 EOF
 
-# Set graphical target
-systemctl set-default graphical.target
+# Use multi-user target — X is started via getty auto-login + startx, not a display manager
+systemctl set-default multi-user.target
 
 # Enable NetworkManager
 systemctl enable NetworkManager
