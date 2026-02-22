@@ -162,6 +162,9 @@ jobs:
             --resultdir /iso-output \
             --tmp /tmp/livemedia-tmp
 
+      - name: List ISO output (debug)
+        run: find /iso-output -type f 2>/dev/null || echo "Directory empty or missing"
+
       - name: Generate SHA-256 checksum
         run: |
           cd /iso-output
